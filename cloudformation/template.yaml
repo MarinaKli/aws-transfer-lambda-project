@@ -1,0 +1,254 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Transfer Family SFTP server with Lambda decryption function'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: file-decryption
+    Description: Name of the project for resource naming
+  
+  SftpUserName:
+    Type: String
+    Default: sftpuser
+    Description: Username for SFTP access
+
+Resources:
+  # S3 Bucket
+  FileBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-files-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # IAM Roles
+  TransferUserRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: transfer.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3AccessForTransfer
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:ListBucket'
+                Resource: !Sub 'arn:aws:s3:::${FileBucket}'
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                  - 's3:GetObject'
+                  - 's3:DeleteObject'
+                Resource: !Sub 'arn:aws:s3:::${FileBucket}/raw/*'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                Resource: !Sub 'arn:aws:s3:::${FileBucket}/raw/*'
+              - Effect: Allow
+                Action:
+                  - 's3:PutObject'
+                Resource: !Sub 'arn:aws:s3:::${FileBucket}/decrypted/*'
+              - Effect: Allow
+                Action:
+                  - 's3:ListBucket'
+                Resource: !Sub 'arn:aws:s3:::${FileBucket}'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # AWS Transfer Family Server
+  TransferServer:
+    Type: AWS::Transfer::Server
+    Properties:
+      EndpointType: PUBLIC
+      IdentityProviderType: SERVICE_MANAGED
+      LoggingRole: !GetAtt TransferUserRole.Arn
+      Protocols:
+        - SFTP
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # SFTP User
+  TransferUser:
+    Type: AWS::Transfer::User
+    Properties:
+      ServerId: !Ref TransferServer
+      UserName: !Ref SftpUserName
+      HomeDirectory: !Sub "/${FileBucket}/raw"
+      Role: !GetAtt TransferUserRole.Arn
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Lambda Function
+  DecryptionFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-decryption-function"
+      Runtime: python3.9
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code: 
+        ZipFile: |
+          import boto3
+          import json
+          import logging
+
+          # Configure logging
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+
+          # Initialize S3 client
+          s3_client = boto3.client('s3')
+
+          def lambda_handler(event, context):
+              """
+              Lambda function that processes files uploaded to an S3 bucket.
+              It decrypts files from the 'raw/' prefix and saves them to the 'decrypted/' prefix.
+              """
+              logger.info(f"Received event: {json.dumps(event)}")
+              
+              try:
+                  # Get the S3 bucket and object key from the event
+                  bucket = event['detail']['bucket']['name']
+                  key = event['detail']['object']['key']
+                  
+                  # Check if this is a raw file (to avoid processing already decrypted files)
+                  if not key.startswith('raw/'):
+                      logger.info(f"File {key} is not in the raw directory. Skipping.")
+                      return {
+                          'statusCode': 200,
+                          'body': json.dumps('File not in raw directory, skipping')
+                      }
+                  
+                  # Get the file content
+                  logger.info(f"Processing file: {key} from bucket: {bucket}")
+                  response = s3_client.get_object(Bucket=bucket, Key=key)
+                  file_content = response['Body'].read()
+                  
+                  # Perform mock decryption
+                  decrypted_content = mock_decrypt(file_content)
+                  
+                  # Create new key for decrypted file
+                  decrypted_key = key.replace('raw/', 'decrypted/')
+                  
+                  # Upload decrypted file
+                  s3_client.put_object(
+                      Bucket=bucket,
+                      Key=decrypted_key,
+                      Body=decrypted_content
+                  )
+                  
+                  logger.info(f"Decrypted file saved as: {decrypted_key}")
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps(f"Successfully decrypted {key} to {decrypted_key}")
+                  }
+                  
+              except Exception as e:
+                  logger.error(f"Error processing file: {str(e)}")
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps(f"Error: {str(e)}")
+                  }
+
+          def mock_decrypt(content):
+              """
+              Mock decryption function.
+              In a real implementation, this would use actual decryption logic.
+              """
+              # For this exercise, we're just returning the content as is
+              # In a real scenario, you would implement actual decryption here
+              return content
+      Timeout: 30
+      MemorySize: 128
+      Environment:
+        Variables:
+          OUTPUT_PREFIX: 'decrypted'
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # EventBridge Rule
+  S3UploadRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub "${ProjectName}-s3-upload-rule"
+      Description: "Rule to detect S3 object creation events and trigger Lambda"
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - "Object Created"
+        detail:
+          bucket:
+            name:
+              - !Ref FileBucket
+          object:
+            key:
+              - prefix: "raw/"
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt DecryptionFunction.Arn
+          Id: "DecryptionFunctionTarget"
+
+  # Lambda Permission for EventBridge
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref DecryptionFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3UploadRule.Arn
+
+Outputs:
+  TransferServerEndpoint:
+    Description: "Endpoint for AWS Transfer Family SFTP server"
+    Value: !GetAtt TransferServer.ServerId
+  
+  FileBucketName:
+    Description: "Name of the S3 bucket for file storage"
+    Value: !Ref FileBucket
+  
+  DecryptionFunctionName:
+    Description: "Name of the Lambda function for decryption"
+    Value: !Ref DecryptionFunction
+    
+  SftpEndpoint:
+    Description: "SFTP endpoint for connecting to the server"
+    Value: !Sub "sftp://${SftpUserName}@${TransferServer.ServerId}.server.transfer.${AWS::Region}.amazonaws.com"
