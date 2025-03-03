@@ -1,5 +1,6 @@
-# Ignore AWS credentials
-.aws/
+# Ignore SSH keys and secrets
+sftp_key
+sftp_key.pub
 *.pem
 *.key
 
@@ -12,10 +13,6 @@ __pycache__/
 *.zip
 *.log
 
-# Ignore Terraform & CloudFormation state
-*.tfstate
-*.tfstate.backup
-.cloudformation/
 
 # Ignore Python dependencies (if using a virtual environment)
 venv/
