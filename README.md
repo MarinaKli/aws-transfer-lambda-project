@@ -87,6 +87,7 @@ aws-transfer-lambda-project/
 │   └── testing.md              # Testing procedures and deployment instructions
 ├── lambda/                     # Lambda function code
 ├── policies/                   # IAM policy definitions and samples
+│   └── kms-policy.json         # KMS key policy template for encryption/decryption
 └── .gitignore                  # Excludes test files and keys
 ```
 
@@ -168,11 +169,24 @@ To enable actual KMS encryption/decryption:
 # Create a KMS key
 KEY_ID=$(aws kms create-key --description "Key for SFTP file decryption" --query KeyMetadata.KeyId --output text)
 
+# Apply the KMS policy from the policies/kms-policy.json file (replace placeholders first)
+Make sure to edit the [kms-policy.json](policies/kms-policy.json) file before using it.
+Replace REGION, ACCOUNT_ID, and KEY_ID with your values
+
+aws kms put-key-policy \
+  --key-id $KEY_ID \
+  --policy-name default \
+  --policy file://policies/kms-policy.json
+
 # Update Lambda to use the key
 aws lambda update-function-configuration \
   --function-name [YOUR_LAMBDA_FUNCTION_NAME] \
   --environment "Variables={KMS_KEY_ID=$KEY_ID}"
-  
+# Update Lambda to use the key
+aws lambda update-function-configuration \
+  --function-name [YOUR_LAMBDA_FUNCTION_NAME] \
+  --environment "Variables={KMS_KEY_ID=$KEY_ID}"
+
 2. SNS Notifications
 
 ## Cleaning Up

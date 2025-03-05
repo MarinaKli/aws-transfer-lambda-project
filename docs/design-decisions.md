@@ -136,15 +136,3 @@ Multiple security measures are implemented throughout the system:
 
 **Rationale**: Taking a security-first approach ensures that sensitive data is protected at rest and in transit, and that system access is properly controlled.
 
-## Future Enhancements
-
-For further development, these enhancements could be considered:
-
-- **SNS Notifications**: Add notification capabilities using Amazon SNS for file processing events
-- **CloudWatch Logs Configuration**: Set up defined retention policies for logs
-- **Parameters and Secrets**: Use AWS Systems Manager Parameter Store or Secrets Manager for sensitive configuration
-- **VPC Integration**: Run Lambda in a VPC for additional network isolation
-- **Multi-User Support**: Expand to support multiple SFTP users with different permissions
-- **Monitoring and Alerting**: Add CloudWatch alarms for error conditions
-- **Dead Letter Queues**: Add SQS dead letter queues for failed processing attempts
-- **Multi-Region Support**: Extend the system to operate across multiple AWS regions
