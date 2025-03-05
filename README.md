@@ -164,6 +164,15 @@ Key architectural and design decisions are documented in [Design Decisions](docs
 ## Enhancements
 The current implementation can be enhanced with:
 1. KMS Key Configuration
+To enable actual KMS encryption/decryption:
+# Create a KMS key
+KEY_ID=$(aws kms create-key --description "Key for SFTP file decryption" --query KeyMetadata.KeyId --output text)
+
+# Update Lambda to use the key
+aws lambda update-function-configuration \
+  --function-name [YOUR_LAMBDA_FUNCTION_NAME] \
+  --environment "Variables={KMS_KEY_ID=$KEY_ID}"
+  
 2. SNS Notifications
 
 ## Cleaning Up

@@ -99,7 +99,7 @@ This document provides detailed instructions for deploying and testing the AWS T
 
    # Connect via SFTP and upload the file
    sftp -i sftp_key $SFTP_ENDPOINT
-   > put test_plaintext2.txt
+   > put test_plaintext.txt
    > exit
    ```
 
