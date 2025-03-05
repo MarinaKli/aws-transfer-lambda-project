@@ -11,6 +11,15 @@ Parameters:
     Type: String
     Default: sftpuser
     Description: Username for SFTP access
+    
+  LambdaCodeBucket:
+    Type: String
+    Description: S3 bucket containing the Lambda function code
+    
+  LambdaCodeKey:
+    Type: String
+    Default: lambda_function.zip
+    Description: S3 key (path and filename) for the Lambda function code
 
 Resources:
   # S3 Bucket
@@ -124,10 +133,8 @@ Resources:
       Handler: lambda_function.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
       Code: 
-        S3Bucket: mklimtestlambdabucket
-        S3Key: lambda_function.zip
-
-
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Ref LambdaCodeKey
       Timeout: 30
       MemorySize: 128
       Environment:
@@ -136,13 +143,6 @@ Resources:
       Tags:
         - Key: Project
           Value: !Ref ProjectName
-          
-  # Explicit Log Group for Lambda to ensure logs are retained
-  DecryptionFunctionLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${DecryptionFunction}"
-      RetentionInDays: 14
   
   # EventBridge Rule
   S3UploadRule:

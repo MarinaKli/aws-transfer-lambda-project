@@ -1,19 +1,64 @@
-# Ignore SSH keys and secrets
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Lambda deployment packages
+*.zip
+lambda_function_kms.zip
+original_lambda.zip
+
+# Local development settings
+.env
+.venv
+venv/
+ENV/
+.idea/
+.vscode/
+
+# Local test files
+test_file.txt
+test_kms.txt
+test-kms.txt
+test_kms_file.txt
+test_plaintext.txt
+encrypted_file.bin
+decrypted_test.txt
+decrypted_test_file.txt
+
+# SSH keys
 sftp_key
 sftp_key.pub
 *.pem
-*.key
+*.ppk
 
-# Ignore local environment files
-.env
-*.config
+# AWS CLI outputs
+function_download_url.txt
+lambda_role_arn.txt
 
-# Ignore compiled & temporary files
-__pycache__/
-*.zip
+# Temporary files
+*.swp
+*.swo
+*.tmp
+.DS_Store
+*~
+
+# Logs
 *.log
-
-
-# Ignore Python dependencies (if using a virtual environment)
-venv/
-.env/
