@@ -178,10 +178,7 @@ aws kms put-key-policy \
   --policy-name default \
   --policy file://policies/kms-policy.json
 
-# Update Lambda to use the key
-aws lambda update-function-configuration \
-  --function-name [YOUR_LAMBDA_FUNCTION_NAME] \
-  --environment "Variables={KMS_KEY_ID=$KEY_ID}"
+
 # Update Lambda to use the key
 aws lambda update-function-configuration \
   --function-name [YOUR_LAMBDA_FUNCTION_NAME] \
